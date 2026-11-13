@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>合約繳費計算</title>
+<style>
+  /* Layout: 單欄手機優先，輸入卡片在上、結果卡片在下 */
+  :root {
+    --bg:#f3f5f7; --card:#ffffff; --fg:#1b2026; --muted:#657080; --accent:#1f6feb;
+    --accent-fg:#ffffff; --line:#e1e5ea; --hl:#eaf2ff; --err:#c62828;
+    --font:-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#12151a; --card:#1b1f26; --fg:#e8ebef; --muted:#97a1ae; --accent:#5b9bff;
+      --accent-fg:#0b1220; --line:#2b313a; --hl:#18263d; --err:#ff8a80; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#12151a; --card:#1b1f26; --fg:#e8ebef; --muted:#97a1ae; --accent:#5b9bff;
+    --accent-fg:#0b1220; --line:#2b313a; --hl:#18263d; --err:#ff8a80; color-scheme: dark;
+  }
+  * { box-sizing:border-box; }
+  body {
+    background:var(--bg); color:var(--fg); font-family:var(--font); line-height:1.5; font-size:16px;
+    padding-block:16px;
+    padding-left:max(16px, env(safe-area-inset-left, 0px));
+    padding-right:max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { max-width:560px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  h1 { font-size:1.25rem; margin:8px 0 0; text-wrap:balance; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; min-width:0; }
+  .field { display:flex; flex-direction:column; gap:6px; }
+  .card > .field + .field { margin-top:14px; }
+  .lbl { font-size:.85rem; color:var(--muted); }
+  input[type=date] {
+    width:100%; font:inherit; padding:10px; border:1px solid var(--line); border-radius:8px;
+    background:var(--bg); color:var(--fg);
+  }
+  .seg { display:flex; gap:8px; }
+  .seg > div { flex:1; position:relative; }
+  .seg input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+  .seg label {
+    display:block; text-align:center; padding:10px 0; border:1px solid var(--line); border-radius:8px;
+    color:var(--fg); pointer-events:none;
+  }
+  .seg input:checked + label { background:var(--accent); border-color:var(--accent); color:var(--accent-fg); }
+  .seg input:focus-visible + label, input[type=date]:focus-visible, button:focus-visible {
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+  .summary { color:var(--muted); font-size:.9rem; margin-bottom:8px; }
+  .summary b { color:var(--fg); }
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:10px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr:last-child td { border-bottom:0; }
+  td.amt { text-align:right; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .sub { display:block; font-size:.8rem; color:var(--muted); font-weight:400; }
+  tr.hl td { background:var(--hl); }
+  .total { display:flex; justify-content:space-between; font-weight:600; padding-top:12px; border-top:2px solid var(--line); font-variant-numeric:tabular-nums; }
+  button {
+    width:100%; margin-top:16px; font:inherit; padding:12px; border:0; border-radius:8px;
+    background:var(--accent); color:var(--accent-fg); cursor:pointer;
+  }
+  .err { color:var(--err); }
+</style>
+</head>
+<body>
+
+<main>
+  <h1>合約繳費計算</h1>
+
+  <div class="card">
+    <div class="field">
+      <label class="lbl" for="date">簽約日期</label>
+      <input type="date" id="date">
+    </div>
+
+    <div class="field">
+      <span class="lbl">堂數</span>
+      <div class="seg">
+        <div><input type="radio" name="s" id="s10" value="10"><label for="s10">10 堂</label></div>
+        <div><input type="radio" name="s" id="s20" value="20" checked><label for="s20">20 堂</label></div>
+        <div><input type="radio" name="s" id="s30" value="30"><label for="s30">30 堂</label></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="lbl">類型</span>
+      <div class="seg">
+        <div><input type="radio" name="k" id="kf" value="first" checked><label for="kf">首次加入</label></div>
+        <div><input type="radio" name="k" id="kr" value="renew"><label for="kr">續約</label></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="result"></div>
+</main>
+
+<script>
+// 2026/1/1 起價目表。first 含 3,000 會員費；舊會員續約也用 renew。
+const PLANS = {
+  10: { days: 50,  first: [14400, 9600],                       renew: [12600, 8400] },
+  20: { days: 100, first: [12900, 12900, 12900, 4300],         renew: [12000, 12000, 12000, 4000] },
+  30: { days: 150, first: [12000, 12000, 12000, 12000, 12000], renew: [11400, 11400, 11400, 11400, 11400] }
+};
+const WD = ['日','一','二','三','四','五','六'];
+const $ = id => document.getElementById(id);
+
+function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+function fmt(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}/${p(d.getMonth()+1)}/${p(d.getDate())}（${WD[d.getDay()]}）`;
+}
+function money(n) { return '$' + n.toLocaleString('en-US'); }
+function parseDate(v) { const [y,m,d] = v.split('-').map(Number); return new Date(y, m-1, d); }
+
+let copyText = '';
+
+function compute() {
+  const v = $('date').value;
+  const box = $('result');
+  if (!v) { box.innerHTML = '<span class="err">請選擇簽約日期</span>'; copyText = ''; return; }
+  const start = parseDate(v);
+  const n = document.querySelector('input[name=s]:checked').value;
+  const kind = document.querySelector('input[name=k]:checked').value;
+  const plan = PLANS[n];
+  const amts = plan[kind];
+  const total = amts.reduce((a,b)=>a+b, 0);
+  const kindName = kind === 'first' ? '首次加入（含會員費 $3,000）' : '續約';
+
+  const review = addDays(start, -3);
+  const expiry = addDays(start, plan.days - 1);
+  const rows = amts.map((a, i) => ({ label: `第 ${i+1} 期`, date: addDays(start, 30*i), amt: a }));
+
+  let html = `<div class="summary">簽約日 <b>${fmt(start)}</b><br>${n} 堂 · ${kindName}</div><div class="table-wrap"><table>`;
+  html += `<tr class="hl"><td>合約審視日</td><td class="amt">${fmt(review)}</td></tr>`;
+  rows.forEach(r => { html += `<tr><td>${r.label}</td><td class="amt">${fmt(r.date)}<span class="sub">${money(r.amt)}</span></td></tr>`; });
+  html += `<tr><td>合約到期日<span class="sub">僅作為退費依據</span></td><td class="amt">${fmt(expiry)}</td></tr></table></div>`;
+  html += `<div class="total"><span>總價</span><span>${money(total)}</span></div>`;
+  html += `<button id="copy" type="button">複製成文字</button>`;
+  box.innerHTML = html;
+
+  copyText = [
+    `簽約日：${fmt(start)}`,
+    `${n} 堂・${kindName}`,
+    `合約審視日：${fmt(review)}`,
+    ...rows.map(r => `${r.label}：${fmt(r.date)}　${money(r.amt)}`),
+    `合約到期日：${fmt(expiry)}（僅作為退費依據）`,
+    `總價：${money(total)}`
+  ].join('\n');
+
+  $('copy').onclick = async () => {
+    const btn = $('copy');
+    try { await navigator.clipboard.writeText(copyText); btn.textContent = '已複製 ✓'; }
+    catch (e) {
+      try {
+        const ta = document.createElement('textarea'); ta.value = copyText; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy'); ta.remove(); btn.textContent = '已複製 ✓';
+      } catch (e2) { btn.textContent = '複製失敗，請手動選取文字'; }
+    }
+    setTimeout(() => { btn.textContent = '複製成文字'; }, 1500);
+  };
+}
+
+(function init() {
+  const t = new Date();
+  $('date').value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  document.querySelectorAll('input').forEach(i => i.addEventListener('change', compute));
+  compute();
+})();
+</script>
+</body>
+</html>

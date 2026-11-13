@@ -129,7 +129,16 @@ function parseDate(v) { const [y,m,d] = v.split('-').map(Number); return new Dat
 
 let copyText = '';
 
+// 單堂價 = 該類型的合約總價 ÷ 堂數；首次加入已含 3,000 會員費
+function updateUnitPrices() {
+  const kind = document.querySelector('input[name=k]:checked').value;
+  Object.keys(PLANS).forEach(n => {
+    $('u' + n).textContent = money(PLANS[n][kind].reduce((a, b) => a + b, 0) / n) + '／堂';
+  });
+}
+
 function compute() {
+  updateUnitPrices();
   const v = $('date').value;
   const box = $('result');
   if (!v) { box.innerHTML = '<span class="err">請選擇簽約日期</span>'; copyText = ''; return; }
@@ -182,10 +191,6 @@ function compute() {
 (function init() {
   const t = new Date();
   $('date').value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
-  // 單堂價 = 續約總價 ÷ 堂數（首次加入的差額只是 3,000 會員費，不算進單堂價）
-  Object.keys(PLANS).forEach(n => {
-    $('u' + n).textContent = money(PLANS[n].renew.reduce((a, b) => a + b, 0) / n) + '／堂';
-  });
   document.querySelectorAll('input').forEach(i => i.addEventListener('change', compute));
   compute();
 })();

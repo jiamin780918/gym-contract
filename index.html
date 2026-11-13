@@ -45,6 +45,7 @@
     display:block; text-align:center; padding:10px 0; border:1px solid var(--line); border-radius:8px;
     color:var(--fg); pointer-events:none;
   }
+  .seg input:checked + label .sub { color:inherit; opacity:.85; }
   .seg input:checked + label { background:var(--accent); border-color:var(--accent); color:var(--accent-fg); }
   .seg input:focus-visible + label, input[type=date]:focus-visible, button:focus-visible {
     outline:2px solid var(--accent); outline-offset:2px;
@@ -81,9 +82,9 @@
     <div class="field">
       <span class="lbl">堂數</span>
       <div class="seg">
-        <div><input type="radio" name="s" id="s10" value="10"><label for="s10">10 堂</label></div>
-        <div><input type="radio" name="s" id="s20" value="20" checked><label for="s20">20 堂</label></div>
-        <div><input type="radio" name="s" id="s30" value="30"><label for="s30">30 堂</label></div>
+        <div><input type="radio" name="s" id="s10" value="10"><label for="s10">10 堂<span class="sub" id="u10"></span></label></div>
+        <div><input type="radio" name="s" id="s20" value="20" checked><label for="s20">20 堂<span class="sub" id="u20"></span></label></div>
+        <div><input type="radio" name="s" id="s30" value="30"><label for="s30">30 堂<span class="sub" id="u30"></span></label></div>
       </div>
     </div>
 
@@ -181,6 +182,10 @@ function compute() {
 (function init() {
   const t = new Date();
   $('date').value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  // 單堂價 = 續約總價 ÷ 堂數（首次加入的差額只是 3,000 會員費，不算進單堂價）
+  Object.keys(PLANS).forEach(n => {
+    $('u' + n).textContent = money(PLANS[n].renew.reduce((a, b) => a + b, 0) / n) + '／堂';
+  });
   document.querySelectorAll('input').forEach(i => i.addEventListener('change', compute));
   compute();
 })();

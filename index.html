@@ -96,7 +96,7 @@
     </div>
 
     <div class="field">
-      <span class="lbl">體驗費（另收）</span>
+      <span class="lbl">體驗費（加入第 1 期）</span>
       <div class="seg">
         <div><input type="radio" name="t" id="t0" value="0" checked><label for="t0">無</label></div>
         <div><input type="radio" name="t" id="t1" value="1000"><label for="t1">教練體驗<br>$1,000</label></div>
@@ -144,14 +144,14 @@ function compute() {
 
   const review = addDays(start, -3);
   const expiry = addDays(start, plan.days - 1);
-  const rows = amts.map((a, i) => ({ label: `第 ${i+1} 期`, date: addDays(start, 30*i), amt: a }));
+  const rows = amts.map((a, i) => ({ label: `第 ${i+1} 期`, date: addDays(start, 30*i), amt: a + (i === 0 ? trial : 0), note: i === 0 && trial ? `（含${trialName} ${money(trial)}）` : '' }));
 
   let html = `<div class="summary">簽約日 <b>${fmt(start)}</b><br>${n} 堂 · ${kindName}</div><div class="table-wrap"><table>`;
   html += `<tr class="hl"><td>合約審視日</td><td class="amt">${fmt(review)}</td></tr>`;
-  rows.forEach(r => { html += `<tr><td>${r.label}</td><td class="amt">${fmt(r.date)}<span class="sub">${money(r.amt)}</span></td></tr>`; });
+  rows.forEach(r => { html += `<tr><td>${r.label}</td><td class="amt">${fmt(r.date)}<span class="sub">${money(r.amt)}${r.note}</span></td></tr>`; });
   html += `<tr><td>合約到期日<span class="sub">僅作為退費依據</span></td><td class="amt">${fmt(expiry)}</td></tr></table></div>`;
-  html += `<div class="total"><span>總價</span><span>${money(total)}</span></div>`;
-  if (trial) html += `<div class="total trial"><span>${trialName}<span class="sub">另收，不含在總價內</span></span><span>${money(trial)}</span></div>`;
+  if (trial) html += `<div class="total trial"><span>課程費</span><span>${money(total)}</span></div><div class="total trial"><span>${trialName}</span><span>${money(trial)}</span></div>`;
+  html += `<div class="total"><span>總價</span><span>${money(total + trial)}</span></div>`;
   html += `<button id="copy" type="button">複製成文字</button>`;
   box.innerHTML = html;
 
@@ -159,10 +159,10 @@ function compute() {
     `簽約日：${fmt(start)}`,
     `${n} 堂・${kindName}`,
     `合約審視日：${fmt(review)}`,
-    ...rows.map(r => `${r.label}：${fmt(r.date)}　${money(r.amt)}`),
+    ...rows.map(r => `${r.label}：${fmt(r.date)}　${money(r.amt)}${r.note}`),
     `合約到期日：${fmt(expiry)}（僅作為退費依據）`,
-    `總價：${money(total)}`,
-    ...(trial ? [`${trialName}：${money(trial)}（另收，不含在總價內）`] : [])
+    ...(trial ? [`課程費：${money(total)}`, `${trialName}：${money(trial)}`] : []),
+    `總價：${money(total + trial)}`
   ].join('\n');
 
   $('copy').onclick = async () => {

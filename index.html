@@ -63,6 +63,7 @@
     width:100%; margin-top:16px; font:inherit; padding:12px; border:0; border-radius:8px;
     background:var(--accent); color:var(--accent-fg); cursor:pointer;
   }
+  .total.trial { margin-top:12px; border-top:1px solid var(--line); font-weight:500; }
   .err { color:var(--err); }
 </style>
 </head>
@@ -91,6 +92,15 @@
       <div class="seg">
         <div><input type="radio" name="k" id="kf" value="first" checked><label for="kf">首次加入</label></div>
         <div><input type="radio" name="k" id="kr" value="renew"><label for="kr">續約</label></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="lbl">體驗費（另收）</span>
+      <div class="seg">
+        <div><input type="radio" name="t" id="t0" value="0" checked><label for="t0">無</label></div>
+        <div><input type="radio" name="t" id="t1" value="1000"><label for="t1">教練體驗<br>$1,000</label></div>
+        <div><input type="radio" name="t" id="t2" value="1500"><label for="t2">物理治療師體驗<br>$1,500</label></div>
       </div>
     </div>
   </div>
@@ -125,6 +135,8 @@ function compute() {
   const start = parseDate(v);
   const n = document.querySelector('input[name=s]:checked').value;
   const kind = document.querySelector('input[name=k]:checked').value;
+  const trial = Number(document.querySelector('input[name=t]:checked').value);
+  const trialName = trial === 1500 ? '物理治療師體驗費' : '教練體驗費';
   const plan = PLANS[n];
   const amts = plan[kind];
   const total = amts.reduce((a,b)=>a+b, 0);
@@ -139,6 +151,7 @@ function compute() {
   rows.forEach(r => { html += `<tr><td>${r.label}</td><td class="amt">${fmt(r.date)}<span class="sub">${money(r.amt)}</span></td></tr>`; });
   html += `<tr><td>合約到期日<span class="sub">僅作為退費依據</span></td><td class="amt">${fmt(expiry)}</td></tr></table></div>`;
   html += `<div class="total"><span>總價</span><span>${money(total)}</span></div>`;
+  if (trial) html += `<div class="total trial"><span>${trialName}<span class="sub">另收，不含在總價內</span></span><span>${money(trial)}</span></div>`;
   html += `<button id="copy" type="button">複製成文字</button>`;
   box.innerHTML = html;
 
@@ -148,7 +161,8 @@ function compute() {
     `合約審視日：${fmt(review)}`,
     ...rows.map(r => `${r.label}：${fmt(r.date)}　${money(r.amt)}`),
     `合約到期日：${fmt(expiry)}（僅作為退費依據）`,
-    `總價：${money(total)}`
+    `總價：${money(total)}`,
+    ...(trial ? [`${trialName}：${money(trial)}（另收，不含在總價內）`] : [])
   ].join('\n');
 
   $('copy').onclick = async () => {

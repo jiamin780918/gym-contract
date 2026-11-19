@@ -40,10 +40,11 @@
   }
   .seg { display:flex; gap:8px; }
   .seg > div { flex:1; position:relative; }
-  .seg input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+  .seg input { position:absolute; opacity:0; width:1px; height:1px; margin:0; }
   .seg label {
     display:block; text-align:center; padding:10px 0; border:1px solid var(--line); border-radius:8px;
-    color:var(--fg); pointer-events:none;
+    color:var(--fg); cursor:pointer; user-select:none; -webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
   }
   .seg input:checked + label .sub { color:inherit; opacity:.85; }
   .seg input:checked + label { background:var(--accent); border-color:var(--accent); color:var(--accent-fg); }

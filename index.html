@@ -38,11 +38,14 @@
     width:100%; font:inherit; padding:10px; border:1px solid var(--line); border-radius:8px;
     background:var(--bg); color:var(--fg);
   }
+  [hidden] { display:none !important; }
   .seg { display:flex; gap:8px; }
   .seg > div { flex:1 1 0; min-width:0; position:relative; display:flex; }
+  .seg.wrap { flex-wrap:wrap; }
+  .seg.wrap > div { flex:1 1 calc(50% - 4px); }
   .seg input { position:absolute; opacity:0; width:1px; height:1px; margin:0; }
   .seg label {
-    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:10px 4px; min-height:3.6em; border:1px solid var(--line); border-radius:8px;
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:10px 4px; min-height:4.2em; border:1px solid var(--line); border-radius:8px;
     color:var(--fg); cursor:pointer; user-select:none; -webkit-user-select:none;
     -webkit-tap-highlight-color:transparent; touch-action:manipulation;
   }
@@ -82,18 +85,21 @@
 
     <div class="field">
       <span class="lbl">堂數</span>
-      <div class="seg">
+      <div class="seg wrap">
         <div><input type="radio" name="s" id="s10" value="10"><label for="s10">10 堂<span class="sub" id="u10"></span></label></div>
         <div><input type="radio" name="s" id="s20" value="20" checked><label for="s20">20 堂<span class="sub" id="u20"></span></label></div>
         <div><input type="radio" name="s" id="s30" value="30"><label for="s30">30 堂<span class="sub" id="u30"></span></label></div>
+        <div id="w50" hidden><input type="radio" name="s" id="s50" value="50"><label for="s50">50 堂<span class="sub" id="u50"></span></label></div>
       </div>
     </div>
 
     <div class="field">
       <span class="lbl">類型</span>
-      <div class="seg">
+      <div class="seg wrap">
         <div><input type="radio" name="k" id="kf" value="first" checked><label for="kf">首次加入</label></div>
         <div><input type="radio" name="k" id="kr" value="renew"><label for="kr">續約</label></div>
+        <div><input type="radio" name="k" id="ko1" value="old1"><label for="ko1">舊會員<span class="sub">001–162 號</span></label></div>
+        <div><input type="radio" name="k" id="ko2" value="old2"><label for="ko2">舊會員<span class="sub">163 號起</span></label></div>
       </div>
     </div>
 
@@ -111,11 +117,23 @@
 </main>
 
 <script>
-// 2026/1/1 起價目表。first 含 3,000 會員費；舊會員續約也用 renew。
+// 價目表。first／renew 為 2026/1/1 起（first 含 3,000 會員費）。
+// old1 = 會員編號 001–162，old2 = 163 號起（2025/12/31 前加入）。50 堂只有 old1，一次付清。
+// 效期天數 = 堂數 × 5。
 const PLANS = {
-  10: { days: 50,  first: [14400, 9600],                       renew: [12600, 8400] },
-  20: { days: 100, first: [12900, 12900, 12900, 4300],         renew: [12000, 12000, 12000, 4000] },
-  30: { days: 150, first: [12000, 12000, 12000, 12000, 12000], renew: [11400, 11400, 11400, 11400, 11400] }
+  10: { days: 50,  first: [14400, 9600],                       renew: [12600, 8400],
+        old1: [12600, 8400],                      old2: [12600, 8400] },
+  20: { days: 100, first: [12900, 12900, 12900, 4300],         renew: [12000, 12000, 12000, 4000],
+        old1: [11400, 11400, 11400, 3800],        old2: [12000, 12000, 12000, 4000] },
+  30: { days: 150, first: [12000, 12000, 12000, 12000, 12000], renew: [11400, 11400, 11400, 11400, 11400],
+        old1: [10200, 10200, 10200, 10200, 10200], old2: [10800, 10800, 10800, 10800, 10800] },
+  50: { days: 250, old1: [80000] }
+};
+const KIND_NAMES = {
+  first: '首次加入（含會員費 $3,000）',
+  renew: '續約',
+  old1: '舊會員（001–162 號）',
+  old2: '舊會員（163 號起）'
 };
 const WD = ['日','一','二','三','四','五','六'];
 const $ = id => document.getElementById(id);
@@ -134,8 +152,11 @@ let copyText = '';
 function updateUnitPrices() {
   const kind = document.querySelector('input[name=k]:checked').value;
   Object.keys(PLANS).forEach(n => {
-    $('u' + n).textContent = money(PLANS[n][kind].reduce((a, b) => a + b, 0) / n) + '／堂';
+    if (PLANS[n][kind]) $('u' + n).textContent = money(PLANS[n][kind].reduce((a, b) => a + b, 0) / n) + '／堂';
   });
+  // 50 堂只有 001–162 號舊會員才有
+  $('w50').hidden = !PLANS[50][kind];
+  if ($('s50').checked && $('w50').hidden) $('s20').checked = true;
 }
 
 function compute() {
@@ -151,7 +172,7 @@ function compute() {
   const plan = PLANS[n];
   const amts = plan[kind];
   const total = amts.reduce((a,b)=>a+b, 0);
-  const kindName = kind === 'first' ? '首次加入（含會員費 $3,000）' : '續約';
+  const kindName = KIND_NAMES[kind];
 
   const review = addDays(start, -3);
   const expiry = addDays(start, plan.days - 1);
